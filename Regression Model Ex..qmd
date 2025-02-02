@@ -1,0 +1,183 @@
+---
+title: | 
+  IE 451 Applied Data Analysis \ 
+  Homework 1
+  
+author: Emre Anil Polat, Your 22002225 
+date: today
+
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+---
+
+```{r}
+#| include: false
+library(magrittr)
+library(tidyverse)
+library(ggplot2)
+
+```
+
+
+# 1- Start By Exploring Data
+
+
+```{r}
+data <- read.csv("used-cars.csv")
+
+head(data)
+
+summary(data)
+```
+
+```{r}
+numerical_vars <- c("Price", "Age_08_04", "KM", "HP", "CC", "Doors")
+
+
+pairs(data[numerical_vars], main="Pairs Plot")
+```
+
+Here, one of the most remarkable relation is between price and age. There is a strong negative relationship; older cars tend to have lower prices. And also there is a positive relationship between horsepower and price, meaning that cars with more power tend to be priced higher. Also the relationship between cylinder volume and price is less clear. There might be some correlation, but hard to make a comment from this plot. 
+
+
+```{r}
+ggplot(data, aes(x = Age_08_04, y = Price)) + 
+  geom_point() + 
+  ggtitle("Price vs Age") +
+  xlab("Age of Car (months)") + 
+  ylab("Price") +
+  theme_minimal()
+```
+
+As also mentioned in the comment before, this plot shows a negative correlation. As the car's age increases, the price tends to decrease. This is logical since older cars generally have lower market values.
+
+```{r}
+ggplot(data, aes(x = KM, y = Price)) + 
+  geom_point() + 
+  ggtitle("Price vs KM") +
+  xlab("Kilometers Driven") + 
+  ylab("Price") +
+  theme_minimal()
+```
+
+Again, there is a negative correlation. Cars that have been driven more kilometers tend to be priced lower. Looks like a normal result as higher usage generally decreases a car's value.
+
+```{r}
+ggplot(data, aes(x = HP, y = Price)) + 
+  geom_point() + 
+  ggtitle("Price vs Horsepower") +
+  xlab("Horsepower") + 
+  ylab("Price") +
+  theme_minimal()
+```
+
+This plot shows that cars with higher horsepower tend to have a higher market value, but it also suggests that horsepower alone isn't the only factor affecting price, as we see price variation even within similar horsepower ranges.
+
+```{r}
+ggplot(data, aes(x = Fuel_Type, y = Price)) + 
+  geom_boxplot() + 
+  ggtitle("Price vs Fuel Type") +
+  xlab("Fuel Type") + 
+  ylab("Price") +
+  theme_minimal()
+```
+
+Fuel type appears to have a notable effect on price, with Diesel cars generally being more expensive, maybe due to their higher fuel efficiency or demand.
+
+```{r}
+
+ggplot(data, aes(x = as.factor(Met_Color), y = Price)) + 
+  geom_boxplot() + 
+  ggtitle("Price vs Metallic Color") +
+  xlab("Metallic Color (1 = Yes, 0 = No)") + 
+  ylab("Price") +
+  theme_minimal()
+```
+
+
+Cars with metallic colors tend to have slightly higher prices compared to cars without it. However, the effect is not very large, so its suggesting that color is not a major factor in determining price.
+
+
+```{r}
+
+ggplot(data, aes(x = as.factor(Powered_Windows), y = Price)) + 
+  geom_boxplot() + 
+  ggtitle("Price vs Powered Windows") +
+  xlab("Powered Windows (1 = Yes, 0 = No)") + 
+  ylab("Price") +
+  theme_minimal()
+
+```
+
+Similarly, powered windows tend to have higher prices but still the effect is not very large. This slightly change can be explained by powered windows are often associated with more luxury or newer models.
+
+
+
+# 2- Propose a multiple regression model.
+
+```{r}
+model <- lm(Price ~ Age_08_04 + KM + HP + Met_Color + Powered_Windows + Power_Steering + Fuel_Type, data = data)
+
+summary(model)
+```
+
+# 3- How good does your model fit to the data?
+
+Here in this model we get R-squared value of 0.8376, which shows that 83.76% of the variability in the car prices is explained by the model. So this is a good fit. Shows the predictors chosen capture much of the variance in the price. 
+
+Also Adjusted R-squared is 0.8367, which is very close to the R-squared. This means that the model doesn't suffer much from over fitting due to unnecessary variables. And the F-statistic of 919.8 with a p-value of < 2.2e-16 shows that the overall model is statistically accurate, and at least one of the predictors has a important relationship with the response variable. The residual standart error is 1466 suggests the typical error or deviation is around 1466. Given that car prices in the data set can range widely, this might be acceptable, but of course a lower value would be better.
+
+Analyzing the results for coefficients, Age, KM, HP, Powered_Windows, and Fuel_TypeDiesel are outstanding predictors, as indicated by their small p-values. On the other hand Met_Color, Power_Steering, and Fuel_TypePetrol do not appear to have a important relationship with prices.
+
+
+To also check the diagnostic plots:
+
+```{r}
+linear_model <- lm(Price ~ Age_08_04 + KM + HP + Met_Color + Powered_Windows + Power_Steering + Fuel_Type, data = data)
+
+par(mfrow = c(2, 2))
+plot(linear_model)
+```
+
+So in these graphs, Residuals vs Fitted plot has a clear pattern, especially with a slight curve, signaling possible non-linearity. In the Q-Q Residuals, points deviate from the diagonal line at the tails. This shows the residuals are not perfectly normally distributed. This may also suggest potential issues with the assumption of normality. The scale-location plot has a curvature in the residuals and it looks like we need to make further adjustments to improve our model. It may not capture all patterns in the data. 
+
+To update the model, based on the coefficient p-values, we might consider removing the insignificant variables to simplify and improve the model.
+
+
+```{r}
+model_updated <- lm(Price ~ Age_08_04 + KM + HP + Powered_Windows + Fuel_Type, data = data)
+```
+
+
+
+# 4- How much does the expected price change if a car's age increases by one year while everything else are fixed?
+
+```{r}
+age_coef <- coef(model_updated)["Age_08_04"]
+price_change <- age_coef * 12 
+print(price_change)
+```
+
+
+# 5- Predict the expected price and give its 80% confidence interval for a typical car with all features set to their sample means for the numerical predictors and to the most frequent categories for the categorical predictors.
+
+```{r}
+typical_car <- data.frame(
+  Age_08_04 = mean(data$Age_08_04),
+  KM = mean(data$KM),
+  HP = mean(data$HP),
+  Met_Color = as.numeric(names(sort(table(data$Met_Color), decreasing = TRUE))[1]),
+  Powered_Windows =  as.numeric(names(sort(table(data$Powered_Windows), decreasing = TRUE))[1]),
+  Power_Steering = as.numeric(names(sort(table(data$Power_Steering), decreasing = TRUE))[1]),
+  Fuel_Type = as.factor(names(sort(table(data$Fuel_Type), decreasing = TRUE))[1])
+)
+
+
+predicted_price <- predict(model_updated, typical_car, interval = "confidence", level = 0.80)
+print(predicted_price)
+```
+
+
